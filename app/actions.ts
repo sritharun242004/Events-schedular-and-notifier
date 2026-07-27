@@ -53,9 +53,10 @@ export async function createProject(formData: FormData): Promise<void> {
     data: { userId, name, color: PROJECT_COLORS[count % PROJECT_COLORS.length] },
   });
   // Flow 2: confirm project creation.
-  if (email) {
+  const notify = process.env.NOTIFY_EMAIL || email;
+  if (notify) {
     await sendEmail({
-      to: email,
+      to: notify,
       subject: `🎬 Project created — ${name}`,
       html: buildProjectCreatedHtml(name, appUrl()),
     });
@@ -189,14 +190,15 @@ export async function syncProjectCalendar(
   }
 
   // Flow 2: confirm schedules that just landed on the calendar (once each).
-  if (email) {
+  const notify = process.env.NOTIFY_EMAIL || email;
+  if (notify) {
     const fresh = await prisma.event.findMany({
       where: { projectId, status: "synced", notified: false, date: { not: null } },
       orderBy: { date: "asc" },
     });
     if (fresh.length) {
       await sendEmail({
-        to: email,
+        to: notify,
         subject: `🎬 ${fresh.length} schedule${fresh.length === 1 ? "" : "s"} added — ${project.name}`,
         html: buildSchedulesAddedHtml(
           project.name,

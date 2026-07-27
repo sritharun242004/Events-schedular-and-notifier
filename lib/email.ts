@@ -13,12 +13,15 @@ export async function sendEmail(opts: {
     console.warn("RESEND_API_KEY not set — skipping email:", opts.subject);
     return;
   }
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: process.env.REMINDER_FROM || "onboarding@resend.dev",
     to: opts.to,
     subject: opts.subject,
     html: opts.html,
   });
+  if (error) {
+    console.error("Resend send failed:", opts.to, error.message || error);
+  }
 }
 
 // ── Shared building blocks ───────────────────────────────

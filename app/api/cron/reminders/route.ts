@@ -61,7 +61,7 @@ export async function GET(request: Request) {
   }
   for (const [email, items] of byUserTomorrow) {
     await sendEmail({
-      to: email,
+      to: process.env.NOTIFY_EMAIL || email,
       subject: "🔔 Tomorrow's schedule — Cinema Paiyan",
       html: buildDayBeforeHtml(items, formatNice(tomorrow), appUrl),
     });
@@ -95,7 +95,7 @@ export async function GET(request: Request) {
     }
     for (const [email, clusters] of byUser) {
       await sendEmail({
-        to: email,
+        to: process.env.NOTIFY_EMAIL || email,
         subject: `🎬 Your ${formatMonth(monthStart)} schedule — Cinema Paiyan`,
         html: buildMonthlyHtml([...clusters.values()], formatMonth(monthStart), appUrl),
       });

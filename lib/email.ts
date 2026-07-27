@@ -1,26 +1,35 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
+const GMAIL_USER = process.env.GMAIL_USER;
+const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
+
+// Gmail SMTP — sends from GMAIL_USER to any recipient (no domain needed).
+const transporter =
+  GMAIL_USER && GMAIL_APP_PASSWORD
+    ? nodemailer.createTransport({
+        service: "gmail",
+        auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
+      })
+    : null;
 
 export async function sendEmail(opts: {
   to: string | string[];
   subject: string;
   html: string;
 }): Promise<void> {
-  if (!resend) {
-    console.warn("RESEND_API_KEY not set — skipping email:", opts.subject);
+  if (!transporter) {
+    console.warn("GMAIL_USER/GMAIL_APP_PASSWORD not set — skipping email:", opts.subject);
     return;
   }
-  const { error } = await resend.emails.send({
-    from: process.env.REMINDER_FROM || "onboarding@resend.dev",
-    to: opts.to,
-    subject: opts.subject,
-    html: opts.html,
-  });
-  if (error) {
-    console.error("Resend send failed:", opts.to, error.message || error);
+  try {
+    await transporter.sendMail({
+      from: `Cinema Paiyan <${GMAIL_USER}>`,
+      to: opts.to,
+      subject: opts.subject,
+      html: opts.html,
+    });
+  } catch (err) {
+    console.error("Gmail send failed:", opts.to, err instanceof Error ? err.message : err);
   }
 }
 

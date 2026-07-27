@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  @apply bg-paper text-ink font-sans;
+}
+
+/* Diagonal "clapperboard" stripe used in the sidebar mark. */
+.clapper-stripe {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    #17161c 0 8px,
+    #f3f2ef 8px 16px
+  );
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2
+           text-sm font-medium transition-colors disabled:opacity-50
+           disabled:pointer-events-none focus-visible:outline-none
+           focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2;
+  }
+  .btn-primary {
+    @apply btn bg-ink text-white hover:bg-ink-soft;
+  }
+  .btn-amber {
+    @apply btn bg-amber text-ink hover:bg-amber-dark hover:text-white;
+  }
+  .btn-ghost {
+    @apply btn text-muted hover:text-ink hover:bg-black/5;
+  }
+
+  .field {
+    @apply w-full bg-transparent outline-none placeholder:text-muted/70
+           rounded-md px-2 py-1.5 text-sm border border-transparent
+           hover:border-line focus:border-amber focus:bg-amber-soft/40 transition;
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1
+           text-xs font-medium;
+  }
+}
+
+/* Native date input tidy-up */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.45;
+  cursor: pointer;
+}

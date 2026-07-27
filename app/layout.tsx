@@ -16,7 +16,7 @@ const display = Bricolage_Grotesque({
 });
 
 export const metadata: Metadata = {
-  title: "Cinema Paiyan — Event Scheduler",
+  title: "PingBot — Event Scheduler",
   description:
     "Plan every film campaign's beats and sync them to Google Calendar, with reminders.",
 };

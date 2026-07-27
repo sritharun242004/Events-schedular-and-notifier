@@ -23,7 +23,7 @@ export async function sendEmail(opts: {
   }
   try {
     await transporter.sendMail({
-      from: `Cinema Paiyan <${GMAIL_USER}>`,
+      from: `PingBot <${GMAIL_USER}>`,
       to: opts.to,
       subject: opts.subject,
       html: opts.html,
@@ -77,7 +77,7 @@ function shell(
 ): string {
   const cta = appUrl
     ? `<tr><td style="padding:20px 28px 0;">
-         <a href="${appUrl}" style="display:inline-block;background:#17161C;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 20px;border-radius:10px;">Open Cinema Paiyan</a>
+         <a href="${appUrl}" style="display:inline-block;background:#17161C;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 20px;border-radius:10px;">Open PingBot</a>
        </td></tr>`
     : "";
   return `
@@ -87,7 +87,7 @@ function shell(
       <tr>
         <td style="background:#17161C;padding:22px 28px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-            <td style="font-size:20px;font-weight:800;letter-spacing:-0.02em;color:#FFFFFF;">🎬 Cinema Paiyan</td>
+            <td style="font-size:20px;font-weight:800;letter-spacing:-0.02em;color:#FFFFFF;">🔔 PingBot</td>
             <td align="right" style="font-size:12px;color:#8A8895;">event scheduler</td>
           </tr></table>
         </td>
@@ -103,12 +103,12 @@ function shell(
       <tr>
         <td style="padding:26px 28px;border-top:1px solid #EFEEEA;">
           <div style="font-size:12px;color:#A5A3AD;line-height:1.5;">
-            You're getting this from Cinema Paiyan because you have events scheduled.
+            You're getting this from PingBot because you have events scheduled.
           </div>
         </td>
       </tr>
     </table>
-    <div style="font-size:11px;color:#B7B5BD;margin-top:14px;">Cinema Paiyan · Event Scheduler</div>
+    <div style="font-size:11px;color:#B7B5BD;margin-top:14px;">PingBot · Event Scheduler</div>
   </td></tr></table>
 </div>`;
 }

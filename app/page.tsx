@@ -13,7 +13,7 @@ export default async function Home() {
           <div className="flex items-center gap-3 mb-8 sm:mb-10">
             <span className="clapper-stripe h-8 w-8 rounded-md" />
             <span className="font-display text-xl font-extrabold tracking-tight">
-              Cinema Paiyan
+              PingBot
             </span>
           </div>
 

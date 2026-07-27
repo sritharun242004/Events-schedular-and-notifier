@@ -27,7 +27,7 @@ export function ProjectSidebar({
         <span className="clapper-stripe h-7 w-7 rounded-md shadow-inner" />
         <div className="leading-tight">
           <div className="font-display font-extrabold text-lg tracking-tight">
-            Cinema Paiyan
+            PingBot
           </div>
           <div className="text-[11px] text-white/40 -mt-0.5">event scheduler</div>
         </div>

@@ -53,7 +53,7 @@ export function DashboardChrome({
           </button>
           <span className="clapper-stripe h-6 w-6 rounded" />
           <span className="font-display font-extrabold text-lg tracking-tight">
-            Cinema Paiyan
+            PingBot
           </span>
         </div>
 

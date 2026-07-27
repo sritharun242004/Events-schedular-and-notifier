@@ -112,6 +112,7 @@ export default async function Dashboard({
       <div className="flex-1 overflow-auto px-4 sm:px-8 py-5 sm:py-6">
         {current ? (
           <EventTable
+            key={current.id}
             projectId={current.id}
             initialEvents={events.map((e) => ({
               id: e.id,

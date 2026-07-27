@@ -27,6 +27,8 @@ async function sessionUser() {
 }
 
 const appUrl = () => process.env.AUTH_URL || undefined;
+const projectUrl = (id: string) =>
+  process.env.AUTH_URL ? `${process.env.AUTH_URL}/dashboard?project=${id}` : undefined;
 
 async function ownsProject(userId: string, projectId: string) {
   const p = await prisma.project.findFirst({ where: { id: projectId, userId } });
@@ -49,16 +51,16 @@ export async function createProject(formData: FormData): Promise<void> {
   const name = String(formData.get("name") || "").trim();
   if (!name) return;
   const count = await prisma.project.count({ where: { userId } });
-  await prisma.project.create({
+  const project = await prisma.project.create({
     data: { userId, name, color: PROJECT_COLORS[count % PROJECT_COLORS.length] },
   });
-  // Flow 2: confirm project creation.
+  // Flow 2: confirm project creation (links straight to the project).
   const notify = process.env.NOTIFY_EMAIL || email;
   if (notify) {
     await sendEmail({
       to: notify,
-      subject: `🎬 Project created — ${name}`,
-      html: buildProjectCreatedHtml(name, appUrl()),
+      subject: `🔔 Project created — ${name}`,
+      html: buildProjectCreatedHtml(name, projectUrl(project.id)),
     });
   }
   revalidatePath("/dashboard");
@@ -175,12 +177,16 @@ export async function saveEvent(
   return { id: ev.id, status: ev.status };
 }
 
-/** Sync every not-yet-synced event in a project to Google Calendar. */
+/**
+ * Sync every not-yet-synced event in a project to Google Calendar.
+ * Fast, email-free — the confirmation email is sent separately (and later)
+ * via notifyNewSchedules so it can batch and wait until editing settles.
+ */
 export async function syncProjectCalendar(
   projectId: string
 ): Promise<{ id: string; status: string }[]> {
-  const { id: userId, email } = await sessionUser();
-  const project = await ownsProject(userId, projectId);
+  const userId = await requireUser();
+  await ownsProject(userId, projectId);
   const events = await prisma.event.findMany({
     where: { projectId, status: { in: ["pending", "needs_date"] } },
   });
@@ -188,37 +194,42 @@ export async function syncProjectCalendar(
   for (const ev of events) {
     out.push({ id: ev.id, status: await syncOne(userId, ev) });
   }
-
-  // Flow 2: confirm schedules that just landed on the calendar (once each).
-  const notify = process.env.NOTIFY_EMAIL || email;
-  if (notify) {
-    const fresh = await prisma.event.findMany({
-      where: { projectId, status: "synced", notified: false, date: { not: null } },
-      orderBy: { date: "asc" },
-    });
-    if (fresh.length) {
-      await sendEmail({
-        to: notify,
-        subject: `🎬 ${fresh.length} schedule${fresh.length === 1 ? "" : "s"} added — ${project.name}`,
-        html: buildSchedulesAddedHtml(
-          project.name,
-          fresh.map((e) => ({
-            title: e.title,
-            dateLabel:
-              formatNice(e.date!) +
-              (e.time ? ` · ${formatTimeLabel(e.time)}` : ""),
-          })),
-          appUrl()
-        ),
-      });
-      await prisma.event.updateMany({
-        where: { id: { in: fresh.map((e) => e.id) } },
-        data: { notified: true },
-      });
-    }
-  }
-
   return out;
+}
+
+/**
+ * Flow 2: send ONE "schedules added" email for events that have synced to the
+ * calendar but haven't been confirmed yet (once each). Called from the client a
+ * minute after editing settles, so a whole batch of entries produces one email.
+ */
+export async function notifyNewSchedules(projectId: string): Promise<void> {
+  const { id: userId, email } = await sessionUser();
+  const project = await ownsProject(userId, projectId);
+  const to = process.env.NOTIFY_EMAIL || email;
+  if (!to) return;
+
+  const fresh = await prisma.event.findMany({
+    where: { projectId, status: "synced", notified: false, date: { not: null } },
+    orderBy: { date: "asc" },
+  });
+  if (!fresh.length) return;
+
+  await sendEmail({
+    to,
+    subject: `🔔 ${fresh.length} schedule${fresh.length === 1 ? "" : "s"} added — ${project.name}`,
+    html: buildSchedulesAddedHtml(
+      project.name,
+      fresh.map((e) => ({
+        title: e.title,
+        dateLabel: formatNice(e.date!) + (e.time ? ` · ${formatTimeLabel(e.time)}` : ""),
+      })),
+      projectUrl(projectId)
+    ),
+  });
+  await prisma.event.updateMany({
+    where: { id: { in: fresh.map((e) => e.id) } },
+    data: { notified: true },
+  });
 }
 
 export async function removeEvent(eventId: string): Promise<void> {

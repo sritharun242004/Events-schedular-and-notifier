@@ -41,14 +41,13 @@ export async function sendEmail(opts: {
 // ── Shared building blocks ───────────────────────────────
 const PALETTE = ["#E8A317", "#E5484D", "#8B5CF6", "#12A594", "#3E63DD", "#E93D82"];
 
-/** Stable accent color per project name. */
 export function projectColor(name: string): string {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   return PALETTE[h % PALETTE.length];
 }
 
-type Item = { project: string; title: string; dateLabel?: string };
+type Item = { project: string; title: string; dateLabel?: string; url?: string };
 
 function eventCard(item: Item): string {
   const color = projectColor(item.project);
@@ -57,16 +56,19 @@ function eventCard(item: Item): string {
          <span style="display:inline-block;font-size:12px;font-weight:700;color:#17161C;background:#F3F2EF;border:1px solid #E7E6E1;border-radius:8px;padding:5px 9px;white-space:nowrap;">${item.dateLabel}</span>
        </td>`
     : "";
+  const body = `
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${color};">${item.project}</div>
+    <div style="font-size:15px;font-weight:600;color:#17161C;margin-top:3px;line-height:1.35;">${item.title}</div>`;
+  const cell = item.url
+    ? `<a href="${item.url}" style="text-decoration:none;display:block;">${body}</a>`
+    : body;
   return `
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border:1px solid #ECEBE6;border-radius:12px;overflow:hidden;margin-bottom:10px;">
     <tr>
       <td width="5" style="width:5px;background:${color};"></td>
       <td style="padding:13px 16px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-          <td style="vertical-align:middle;">
-            <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${color};">${item.project}</div>
-            <div style="font-size:15px;font-weight:600;color:#17161C;margin-top:3px;line-height:1.35;">${item.title}</div>
-          </td>
+          <td style="vertical-align:middle;">${cell}</td>
           ${datePill}
         </tr></table>
       </td>
@@ -78,13 +80,14 @@ function shell(
   title: string,
   subtitle: string,
   inner: string,
-  appUrl?: string
+  cta?: { url?: string; label: string }
 ): string {
-  const cta = appUrl
-    ? `<tr><td style="padding:20px 28px 0;">
-         <a href="${appUrl}" style="display:inline-block;background:#17161C;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 20px;border-radius:10px;">Open PingBot</a>
-       </td></tr>`
-    : "";
+  const ctaBlock =
+    cta && cta.url
+      ? `<tr><td style="padding:20px 28px 0;">
+           <a href="${cta.url}" style="display:inline-block;background:#17161C;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 20px;border-radius:10px;">${cta.label}</a>
+         </td></tr>`
+      : "";
   return `
 <div style="background:#F3F2EF;margin:0;padding:28px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
@@ -104,7 +107,7 @@ function shell(
         </td>
       </tr>
       ${inner}
-      ${cta}
+      ${ctaBlock}
       <tr>
         <td style="padding:26px 28px;border-top:1px solid #EFEEEA;">
           <div style="font-size:12px;color:#A5A3AD;line-height:1.5;">
@@ -134,7 +137,7 @@ function sectionBlock(heading: string, right: string, body: string): string {
 export function buildDayBeforeHtml(
   items: Item[],
   dateLabel: string,
-  appUrl?: string
+  dashboardUrl?: string
 ): string {
   const body = items.length
     ? items.map(eventCard).join("")
@@ -143,32 +146,42 @@ export function buildDayBeforeHtml(
     "Tomorrow's schedule",
     "Here's what's happening tomorrow across your projects.",
     sectionBlock("🔔 Happening tomorrow", dateLabel, body),
-    appUrl
+    { url: dashboardUrl, label: "Open PingBot" }
   );
 }
 
 // ── Flow 1: monthly overview ─────────────────────────────
-export type MonthCluster = { project: string; events: { title: string; dateLabel: string }[] };
+export type MonthCluster = {
+  project: string;
+  url?: string;
+  events: { title: string; dateLabel: string }[];
+};
 
 export function buildMonthlyHtml(
   clusters: MonthCluster[],
   monthLabel: string,
-  appUrl?: string
+  dashboardUrl?: string
 ): string {
   const total = clusters.reduce((n, c) => n + c.events.length, 0);
   const inner = clusters.length
     ? clusters
-        .map((c) =>
-          sectionBlock(
-            `<span style="display:inline-block;width:9px;height:9px;border-radius:9px;background:${projectColor(
-              c.project
-            )};margin-right:7px;"></span>${c.project}`,
+        .map((c) => {
+          const dot = `<span style="display:inline-block;width:9px;height:9px;border-radius:9px;background:${projectColor(
+            c.project
+          )};margin-right:7px;"></span>`;
+          const heading = c.url
+            ? `${dot}<a href="${c.url}" style="color:#17161C;text-decoration:none;">${c.project}</a>`
+            : `${dot}${c.project}`;
+          return sectionBlock(
+            heading,
             `${c.events.length} event${c.events.length === 1 ? "" : "s"}`,
             c.events
-              .map((e) => eventCard({ project: c.project, title: e.title, dateLabel: e.dateLabel }))
+              .map((e) =>
+                eventCard({ project: c.project, title: e.title, dateLabel: e.dateLabel, url: c.url })
+              )
               .join("")
-          )
-        )
+          );
+        })
         .join("")
     : sectionBlock("This month", "", `<div style="font-size:14px;color:#9B99A3;">No dated schedules this month yet.</div>`);
   return shell(
@@ -177,12 +190,12 @@ export function buildMonthlyHtml(
       clusters.length === 1 ? "" : "s"
     } this month.`,
     inner,
-    appUrl
+    { url: dashboardUrl, label: "Open PingBot" }
   );
 }
 
 // ── Flow 2: creation confirmations ───────────────────────
-export function buildProjectCreatedHtml(projectName: string, appUrl?: string): string {
+export function buildProjectCreatedHtml(projectName: string, projectUrl?: string): string {
   return shell(
     "Project created",
     `“${projectName}” is ready. Add its schedule and each dated item syncs to your calendar.`,
@@ -193,18 +206,20 @@ export function buildProjectCreatedHtml(projectName: string, appUrl?: string): s
       "new",
       `<div style="font-size:14px;color:#9B99A3;">No schedules yet — add events in the grid to get started.</div>`
     ),
-    appUrl
+    { url: projectUrl, label: `Open ${projectName}` }
   );
 }
 
 export function buildSchedulesAddedHtml(
   projectName: string,
   events: { title: string; dateLabel: string }[],
-  appUrl?: string
+  projectUrl?: string
 ): string {
   const days = new Set(events.map((e) => e.dateLabel)).size;
   const body = events
-    .map((e) => eventCard({ project: projectName, title: e.title, dateLabel: e.dateLabel }))
+    .map((e) =>
+      eventCard({ project: projectName, title: e.title, dateLabel: e.dateLabel, url: projectUrl })
+    )
     .join("");
   return shell(
     "Schedules added",
@@ -212,6 +227,6 @@ export function buildSchedulesAddedHtml(
       days === 1 ? "" : "s"
     } added to “${projectName}” and synced to your calendar.`,
     sectionBlock("🎬 Added to " + projectName, `${events.length} new`, body),
-    appUrl
+    { url: projectUrl, label: `Open ${projectName}` }
   );
 }

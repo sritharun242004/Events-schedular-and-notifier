@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { saveEvent, removeEvent, syncProjectCalendar } from "@/app/actions";
+import {
+  saveEvent,
+  removeEvent,
+  syncProjectCalendar,
+  notifyNewSchedules,
+} from "@/app/actions";
 
 type Row = {
   key: string;
@@ -63,6 +68,20 @@ export function EventTable({
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const emailTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingEmail = useRef(false);
+
+  // Confirmation email waits ~1 min after editing settles, so a whole batch of
+  // entries produces a single email (and it never fires mid-entry).
+  const EMAIL_DELAY_MS = 60_000;
+  const scheduleEmail = useCallback(() => {
+    pendingEmail.current = true;
+    if (emailTimer.current) clearTimeout(emailTimer.current);
+    emailTimer.current = setTimeout(() => {
+      pendingEmail.current = false;
+      notifyNewSchedules(projectId);
+    }, EMAIL_DELAY_MS);
+  }, [projectId]);
 
   const runSync = useCallback(async () => {
     setState("syncing");
@@ -119,6 +138,7 @@ export function EventTable({
       rs.map((r) => (r.key === key ? { ...r, ...p, dirty: true } : r))
     );
     scheduleFlush();
+    scheduleEmail(); // (re)start the 1-min confirmation-email countdown
   };
 
   const addRows = (n: number) => {
@@ -143,17 +163,25 @@ export function EventTable({
   const saveNow = async () => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     if (syncTimer.current) clearTimeout(syncTimer.current);
+    if (emailTimer.current) clearTimeout(emailTimer.current);
     await flush();
     await runSync();
+    pendingEmail.current = false;
+    await notifyNewSchedules(projectId); // explicit save → confirm now
   };
 
-  // Flush any pending edits when leaving the page.
+  // On leaving the project, flush timers and send any pending confirmation.
   useEffect(() => {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
       if (syncTimer.current) clearTimeout(syncTimer.current);
+      if (emailTimer.current) clearTimeout(emailTimer.current);
+      if (pendingEmail.current) {
+        pendingEmail.current = false;
+        notifyNewSchedules(projectId);
+      }
     };
-  }, []);
+  }, [projectId]);
 
   return (
     <div>

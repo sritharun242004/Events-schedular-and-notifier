@@ -14,7 +14,7 @@ type EventRow = {
   title: string;
   date: Date | null;
   time: string | null;
-  project: { name: string; user: { email: string | null } };
+  project: { id: string; name: string; user: { email: string | null } };
 };
 
 /**
@@ -31,6 +31,8 @@ export async function GET(request: Request) {
   }
 
   const appUrl = process.env.AUTH_URL || undefined;
+  const dashboardUrl = appUrl ? `${appUrl}/dashboard` : undefined;
+  const projLink = (id: string) => (appUrl ? `${appUrl}/dashboard?project=${id}` : undefined);
   const now = new Date();
   const today = dateUTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const tomorrow = new Date(today);
@@ -48,7 +50,7 @@ export async function GET(request: Request) {
     orderBy: { time: "asc" },
   })) as EventRow[];
 
-  const byUserTomorrow = new Map<string, { project: string; title: string; dateLabel?: string }[]>();
+  const byUserTomorrow = new Map<string, { project: string; title: string; dateLabel?: string; url?: string }[]>();
   for (const ev of tomorrowEvents) {
     const email = ev.project.user.email;
     if (!email) continue;
@@ -57,13 +59,14 @@ export async function GET(request: Request) {
       project: ev.project.name,
       title: ev.title,
       dateLabel: formatTimeLabel(ev.time),
+      url: projLink(ev.project.id),
     });
   }
   for (const [email, items] of byUserTomorrow) {
     await sendEmail({
       to: process.env.NOTIFY_EMAIL || email,
       subject: "🔔 Tomorrow's schedule — PingBot",
-      html: buildDayBeforeHtml(items, formatNice(tomorrow), appUrl),
+      html: buildDayBeforeHtml(items, formatNice(tomorrow), dashboardUrl),
     });
     dayBeforeSent++;
   }
@@ -86,7 +89,7 @@ export async function GET(request: Request) {
       if (!byUser.has(email)) byUser.set(email, new Map());
       const clusters = byUser.get(email)!;
       if (!clusters.has(ev.project.name))
-        clusters.set(ev.project.name, { project: ev.project.name, events: [] });
+        clusters.set(ev.project.name, { project: ev.project.name, url: projLink(ev.project.id), events: [] });
       clusters.get(ev.project.name)!.events.push({
         title: ev.title,
         dateLabel:
@@ -97,7 +100,7 @@ export async function GET(request: Request) {
       await sendEmail({
         to: process.env.NOTIFY_EMAIL || email,
         subject: `🎬 Your ${formatMonth(monthStart)} schedule — PingBot`,
-        html: buildMonthlyHtml([...clusters.values()], formatMonth(monthStart), appUrl),
+        html: buildMonthlyHtml([...clusters.values()], formatMonth(monthStart), dashboardUrl),
       });
       monthlySent++;
     }

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 import { isCalendarConnected } from "@/lib/google";
 import { formatNice } from "@/lib/date";
 import { ProjectSidebar } from "@/components/ProjectSidebar";
@@ -18,14 +18,16 @@ export default async function Dashboard({
   const userId = session.user.id;
   const { project: selectedId } = await searchParams;
 
-  const [projects, calendarConnected] = await Promise.all([
-    prisma.project.findMany({
-      where: { userId },
-      orderBy: { createdAt: "asc" },
-      include: { _count: { select: { events: true } } },
-    }),
-    isCalendarConnected(userId),
-  ]);
+  const [projects, calendarConnected] = await withRetry(() =>
+    Promise.all([
+      prisma.project.findMany({
+        where: { userId },
+        orderBy: { createdAt: "asc" },
+        include: { _count: { select: { events: true } } },
+      }),
+      isCalendarConnected(userId),
+    ])
+  );
 
   const current =
     projects.find((p) => p.id === selectedId) ?? projects[0] ?? null;

@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { signOut } from "@/auth";
 import { NewProjectButton } from "./NewProjectButton";
+import { ProjectRow } from "./ProjectRow";
 
 type Project = {
   id: string;
@@ -47,34 +47,13 @@ export function ProjectSidebar({
         )}
 
         <ul className="space-y-0.5">
-          {projects.map((p) => {
-            const active = p.id === currentId;
-            return (
-              <li key={p.id}>
-                <Link
-                  href={`/dashboard?project=${p.id}`}
-                  className={`group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition ${
-                    active
-                      ? "bg-white/10 text-white"
-                      : "text-white/70 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  <span
-                    className="h-2.5 w-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: p.color }}
-                  />
-                  <span className="truncate flex-1">{p.name}</span>
-                  <span
-                    className={`text-[11px] tabular-nums ${
-                      active ? "text-white/60" : "text-white/30"
-                    }`}
-                  >
-                    {p._count.events}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
+          {projects.map((p) => (
+            <ProjectRow
+              key={p.id}
+              project={{ id: p.id, name: p.name, color: p.color, eventCount: p._count.events }}
+              active={p.id === currentId}
+            />
+          ))}
         </ul>
 
         <div className="mt-3 px-1">

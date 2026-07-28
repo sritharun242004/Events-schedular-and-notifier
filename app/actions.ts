@@ -73,16 +73,23 @@ export async function renameProject(projectId: string, name: string) {
   revalidatePath("/dashboard");
 }
 
-export async function deleteProject(projectId: string) {
+export async function deleteProject(
+  projectId: string,
+  deleteEvents: boolean
+) {
   const userId = await requireUser();
   await ownsProject(userId, projectId);
-  const events = await prisma.event.findMany({
-    where: { projectId, googleEventId: { not: null } },
-    select: { googleEventId: true },
-  });
-  await Promise.all(
-    events.map((e) => e.googleEventId && deleteCalendarEvent(userId, e.googleEventId))
-  );
+  // Optionally remove the events from Google Calendar first.
+  if (deleteEvents) {
+    const events = await prisma.event.findMany({
+      where: { projectId, googleEventId: { not: null } },
+      select: { googleEventId: true },
+    });
+    await Promise.all(
+      events.map((e) => e.googleEventId && deleteCalendarEvent(userId, e.googleEventId))
+    );
+  }
+  // Always remove the project + its rows from the app (events cascade).
   await prisma.project.delete({ where: { id: projectId } });
   revalidatePath("/dashboard");
 }

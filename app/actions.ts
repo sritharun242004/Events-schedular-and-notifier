@@ -279,3 +279,109 @@ export async function removeEvent(eventId: string): Promise<void> {
   if (ev.googleEventId) await deleteCalendarEvent(userId, ev.googleEventId);
   await prisma.event.delete({ where: { id: eventId } });
 }
+
+// ── Bulk import (CSV / Excel) ────────────────────────────
+type ImportRow = {
+  project?: string;
+  date?: string;
+  time?: string;
+  event?: string;
+  planned?: string;
+  notes?: string;
+};
+
+function importDate(raw: string): Date | null {
+  const s = (raw || "").trim();
+  if (!s) return null;
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return dateUTC(+m[1], +m[2] - 1, +m[3]);
+  return parseFreeformDate(s); // "Aug 4", "July 20/21" → first date; "TBD" → null
+}
+
+/**
+ * Bulk-create events from parsed spreadsheet rows. Routes each row to a project
+ * by its "Project" column (creating it if new), or to fallbackProjectId when the
+ * column is blank. Then syncs all dated events to Google Calendar.
+ */
+export async function importEvents(
+  rows: ImportRow[],
+  fallbackProjectId?: string
+): Promise<{ created: number; synced: number; projects: number; skipped: number }> {
+  const userId = await requireUser();
+  if (!Array.isArray(rows)) return { created: 0, synced: 0, projects: 0, skipped: 0 };
+  const capped = rows.slice(0, 2000);
+
+  let fallback: string | undefined;
+  if (fallbackProjectId) {
+    const p = await prisma.project.findFirst({ where: { id: fallbackProjectId, userId } });
+    fallback = p?.id;
+  }
+
+  const existing = await prisma.project.findMany({ where: { userId } });
+  const byName = new Map<string, string>();
+  for (const p of existing) byName.set(p.name.toLowerCase(), p.id);
+  let colorIdx = existing.length;
+
+  const affected = new Set<string>();
+  let created = 0;
+  let skipped = 0;
+
+  for (const r of capped) {
+    const title = String(r.event || "").trim();
+    const pname = String(r.project || "").trim();
+    let projectId: string | undefined;
+    if (pname) {
+      const key = pname.toLowerCase();
+      projectId = byName.get(key);
+      if (!projectId) {
+        const proj = await prisma.project.create({
+          data: { userId, name: pname, color: PROJECT_COLORS[colorIdx++ % PROJECT_COLORS.length] },
+        });
+        byName.set(key, proj.id);
+        projectId = proj.id;
+      }
+    } else {
+      projectId = fallback;
+    }
+    if (!projectId || !title) {
+      skipped++;
+      continue;
+    }
+
+    const rawDate = String(r.date || "").trim();
+    const date = importDate(rawDate);
+    const isIso = /^\d{4}-\d{1,2}-\d{1,2}$/.test(rawDate);
+    const planned =
+      String(r.planned || "").trim() || (rawDate && !isIso ? rawDate : "") || null;
+    const timeRaw = String(r.time || "").trim();
+    const time = /^\d{1,2}:\d{2}$/.test(timeRaw) ? timeRaw : null;
+
+    await prisma.event.create({
+      data: {
+        projectId,
+        title,
+        date,
+        time,
+        freeformDate: planned,
+        notes: String(r.notes || "").trim() || null,
+        status: date ? "pending" : "needs_date",
+        notified: true,
+      },
+    });
+    created++;
+    affected.add(projectId);
+  }
+
+  let synced = 0;
+  for (const pid of affected) {
+    const evs = await prisma.event.findMany({
+      where: { projectId: pid, status: { in: ["pending", "needs_date"] } },
+    });
+    for (const ev of evs) {
+      if ((await syncOne(userId, ev)) === "synced") synced++;
+    }
+  }
+
+  revalidatePath("/dashboard");
+  return { created, synced, projects: byName.size, skipped };
+}

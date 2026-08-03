@@ -1,6 +1,7 @@
 import { NewProjectButton } from "./NewProjectButton";
 import { ProjectRow } from "./ProjectRow";
 import { ProfileButton } from "./ProfileButton";
+import { ImportButton } from "./ImportButton";
 
 type Project = {
   id: string;
@@ -62,6 +63,7 @@ export function ProjectSidebar({
 
         <div className="mt-3 px-1">
           <NewProjectButton variant="sidebar" />
+          <ImportButton currentProjectId={currentId} />
         </div>
       </nav>
 

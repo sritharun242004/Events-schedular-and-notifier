@@ -17,6 +17,7 @@ export async function getCalendarClient(
     where: { userId, provider: "google" },
   });
   if (!account) return null;
+  if (account.calendarDisabled) return null; // user turned sync off in-app
 
   const oauth2 = new google.auth.OAuth2(
     process.env.AUTH_GOOGLE_ID,
@@ -60,15 +61,27 @@ export async function getCalendarClient(
   return google.calendar({ version: "v3", auth: oauth2 });
 }
 
-/** True if the user has a usable Google Calendar connection. */
+/** True if the user has a usable (and enabled) Google Calendar connection. */
 export async function isCalendarConnected(userId: string): Promise<boolean> {
+  return (await getCalendarStatus(userId)).connected;
+}
+
+/**
+ * Richer calendar state for the profile panel:
+ *  - hasScope: the Google grant includes calendar.events (ever connected)
+ *  - connected: hasScope AND the user hasn't turned sync off in-app
+ */
+export async function getCalendarStatus(
+  userId: string
+): Promise<{ connected: boolean; hasScope: boolean }> {
   const account = await prisma.account.findFirst({
     where: { userId, provider: "google" },
-    select: { refresh_token: true, scope: true },
+    select: { refresh_token: true, scope: true, calendarDisabled: true },
   });
-  return Boolean(
+  const hasScope = Boolean(
     account?.refresh_token && account.scope?.includes("calendar.events")
   );
+  return { hasScope, connected: hasScope && !account?.calendarDisabled };
 }
 
 function toDateOnly(date: Date): string {

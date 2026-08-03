@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
+import { auth, signIn, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import {
   upsertCalendarEvent,
@@ -34,6 +34,36 @@ async function ownsProject(userId: string, projectId: string) {
   const p = await prisma.project.findFirst({ where: { id: projectId, userId } });
   if (!p) throw new Error("Project not found");
   return p;
+}
+
+// ── Account / calendar connection ────────────────────────
+/** (Re)grant the Google Calendar scope via OAuth — for users who never connected. */
+export async function connectCalendar() {
+  await signIn("google", { redirectTo: "/dashboard" });
+}
+
+/** Turn calendar sync back on (scope already granted, was soft-disconnected). */
+export async function enableCalendar() {
+  const userId = await requireUser();
+  await prisma.account.updateMany({
+    where: { userId, provider: "google" },
+    data: { calendarDisabled: false },
+  });
+  revalidatePath("/dashboard");
+}
+
+/** Stop syncing to Google Calendar (keeps login + existing events intact). */
+export async function disconnectCalendar() {
+  const userId = await requireUser();
+  await prisma.account.updateMany({
+    where: { userId, provider: "google" },
+    data: { calendarDisabled: true },
+  });
+  revalidatePath("/dashboard");
+}
+
+export async function signOutAction() {
+  await signOut({ redirectTo: "/" });
 }
 
 // ── Projects ─────────────────────────────────────────────

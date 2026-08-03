@@ -33,6 +33,7 @@ model Account {
   scope             String?
   id_token          String? @db.Text
   session_state     String?
+  calendarDisabled  Boolean @default(false) // user turned calendar sync off in-app
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

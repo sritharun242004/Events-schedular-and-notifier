@@ -1,6 +1,6 @@
-import { signOut } from "@/auth";
 import { NewProjectButton } from "./NewProjectButton";
 import { ProjectRow } from "./ProjectRow";
+import { ProfileButton } from "./ProfileButton";
 
 type Project = {
   id: string;
@@ -12,14 +12,18 @@ type Project = {
 export function ProjectSidebar({
   projects,
   currentId,
+  userName,
   userEmail,
+  calendarConnected,
+  hasCalendarScope,
 }: {
   projects: Project[];
   currentId: string | null;
+  userName: string | null;
   userEmail: string;
+  calendarConnected: boolean;
+  hasCalendarScope: boolean;
 }) {
-  const initial = (userEmail[0] || "?").toUpperCase();
-
   return (
     <aside className="w-64 h-full shrink-0 bg-ink text-white flex flex-col">
       {/* Brand */}
@@ -61,25 +65,14 @@ export function ProjectSidebar({
         </div>
       </nav>
 
-      {/* User footer */}
-      <div className="border-t border-ink-line p-3 flex items-center gap-3">
-        <span className="h-8 w-8 rounded-full bg-amber text-ink font-semibold text-sm flex items-center justify-center shrink-0">
-          {initial}
-        </span>
-        <span className="text-xs text-white/60 truncate flex-1" title={userEmail}>
-          {userEmail}
-        </span>
-        <form
-          action={async () => {
-            "use server";
-            await signOut({ redirectTo: "/" });
-          }}
-        >
-          <button className="text-xs text-white/40 hover:text-white" title="Sign out">
-            ⏻
-          </button>
-        </form>
-      </div>
+      {/* Profile / account footer */}
+      <ProfileButton
+        name={userName}
+        email={userEmail}
+        projectCount={projects.length}
+        calendarConnected={calendarConnected}
+        hasCalendarScope={hasCalendarScope}
+      />
     </aside>
   );
 }
